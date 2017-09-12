@@ -3,11 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"time"
 
 	"github.com/xogroup/kapacitor-configmap-listener/configuration"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/xogroup/kapacitor-configmap-listener/helpers"
 )
 
 func main() {
@@ -20,12 +18,17 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	for {
-		pods, err := kubeClient.CoreV1().Pods("").List(metav1.ListOptions{})
-		if err != nil {
-			panic(err.Error())
-		}
-		fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
-		time.Sleep(10 * time.Second)
-	}
+
+	helpers.Watch(
+		kubeClient,
+		"services",
+		func(obj interface{}) {
+			fmt.Printf("service added: %s \n", obj)
+		},
+		func(obj interface{}) {
+			fmt.Printf("service deleted: %s \n", obj)
+		},
+		func(oldObj, newObj interface{}) {
+			fmt.Printf("service changed \n")
+		})
 }
