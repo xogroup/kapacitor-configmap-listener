@@ -13,7 +13,7 @@ import (
 
 // Watch sets up the watch list against the configmap resource and uses the provided event
 // handlers for events when bubbled.
-func Watch(kubeClient *kubernetes.Clientset, resource string, addHandler func(obj interface{}), deleteHandler func(obj interface{}), updateHandler func(oldObj, newObj interface{})) {
+func Watch(kubeClient *kubernetes.Clientset, resource string, addHandler func(obj interface{}), deleteHandler func(obj interface{}), updateHandler func(oldObj, newObj interface{})) chan struct{} {
 
 	watchlist := cache.NewListWatchFromClient(kubeClient.Core().RESTClient(), resource, v1.NamespaceAll, fields.Everything())
 

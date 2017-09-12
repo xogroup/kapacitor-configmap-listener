@@ -2,7 +2,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   creationTimestamp: 2016-02-18T19:14:38Z
-  name: example-config
+  name: lam-configmap-test
   namespace: default
 data:
   example.property.1: hello

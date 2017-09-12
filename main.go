@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 
+	"k8s.io/client-go/pkg/api/v1"
+
 	"github.com/xogroup/kapacitor-configmap-listener/configuration"
 	"github.com/xogroup/kapacitor-configmap-listener/helpers"
 )
@@ -23,12 +25,15 @@ func main() {
 		kubeClient,
 		"configmaps",
 		func(obj interface{}) {
-			fmt.Printf("service added: %s \n", obj)
+			configMap := obj.(*v1.ConfigMap)
+			fmt.Printf("configmap created: %s \n", configMap.ObjectMeta.Name)
 		},
 		func(obj interface{}) {
-			fmt.Printf("service deleted: %s \n", obj)
+			configMap := obj.(*v1.ConfigMap)
+			fmt.Printf("configmap deleted: %s \n", configMap.ObjectMeta.Name)
 		},
 		func(oldObj, newObj interface{}) {
-			fmt.Printf("service changed \n")
+			configMap := oldObj.(*v1.ConfigMap)
+			fmt.Printf("configmap deleted: %s \n", configMap.ObjectMeta.Name)
 		})
 }
