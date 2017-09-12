@@ -21,7 +21,7 @@ func main() {
 
 	helpers.Watch(
 		kubeClient,
-		"services",
+		"configmaps",
 		func(obj interface{}) {
 			fmt.Printf("service added: %s \n", obj)
 		},
