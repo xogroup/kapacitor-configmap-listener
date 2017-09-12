@@ -10,16 +10,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// NewClientSet Create a Kubernetes ClientSet based on flags
-func NewClientSet(incluster *bool, kubeconfigpath *string) (*kubernetes.Clientset, error) {
+// NewClientSet create a Kubernetes ClientSet based on flags
+func NewClientSet(inCluster *bool, kubeConfigPath *string) (*kubernetes.Clientset, error) {
 
 	var config *rest.Config
 	var err error
 
-	if *incluster == true {
+	if *inCluster == true {
 		config, err = NewInClusterConfig()
 	} else {
-		config, err = NewOutOfClusterConfig(kubeconfigpath)
+		config, err = NewOutOfClusterConfig(kubeConfigPath)
 	}
 
 	if err != nil {
@@ -29,20 +29,21 @@ func NewClientSet(incluster *bool, kubeconfigpath *string) (*kubernetes.Clientse
 	return kubernetes.NewForConfig(config)
 }
 
-// NewInClusterConfig Create an in-cluster configuration
+// NewInClusterConfig creates an in-cluster configuration
 func NewInClusterConfig() (*rest.Config, error) {
 
 	return rest.InClusterConfig()
 }
 
-// NewOutOfClusterConfig Create an out-of-cluster configuration
-func NewOutOfClusterConfig(kubeconfigpath *string) (*rest.Config, error) {
+// NewOutOfClusterConfig create an out-of-cluster configuration.  If the `kubeconfigpath` is empty
+// an attempt is made to locate the `HOME` directory and a path for `~/.kube/config` is used as default.
+func NewOutOfClusterConfig(kubeConfigPath *string) (*rest.Config, error) {
 
-	if homepath := os.Getenv("HOME"); *kubeconfigpath == "" && homepath != "" {
-		*kubeconfigpath = filepath.Join(homepath, ".kube", "config")
+	if homePath := os.Getenv("HOME"); *kubeConfigPath == "" && homePath != "" {
+		*kubeConfigPath = filepath.Join(homePath, ".kube", "config")
 	} else {
 		return nil, errors.New("absolute path required for kube config")
 	}
 
-	return clientcmd.BuildConfigFromFlags("", *kubeconfigpath)
+	return clientcmd.BuildConfigFromFlags("", *kubeConfigPath)
 }

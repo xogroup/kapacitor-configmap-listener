@@ -11,17 +11,17 @@ import (
 )
 
 func main() {
-	kubeconfig := flag.String("kubeconfig", "", "absolute path to the kubeconfig file (optional) [\"~/.kube/config\"]")
-	incluster := flag.Bool("incluster", false, "setup context for inside cluster (optional) [false]")
+	kubeConfig := flag.String("kubeconfig", "", "absolute path to the kubeconfig file (optional) [\"~/.kube/config\"]")
+	inCluster := flag.Bool("incluster", false, "setup context for inside cluster (optional) [false]")
 	flag.Parse()
 
 	// creates the clientset
-	clientset, err := configuration.NewClientSet(incluster, kubeconfig)
+	kubeClient, err := configuration.NewClientSet(inCluster, kubeConfig)
 	if err != nil {
 		panic(err.Error())
 	}
 	for {
-		pods, err := clientset.CoreV1().Pods("").List(metav1.ListOptions{})
+		pods, err := kubeClient.CoreV1().Pods("").List(metav1.ListOptions{})
 		if err != nil {
 			panic(err.Error())
 		}

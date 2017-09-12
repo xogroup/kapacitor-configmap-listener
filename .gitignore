@@ -12,6 +12,7 @@ vendor
 *.[568vq]
 [568vq].out
 kcl
+kapacitor-configmap-listener
 
 *.cgo1.go
 *.cgo2.c
