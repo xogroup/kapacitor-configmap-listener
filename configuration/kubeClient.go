@@ -10,8 +10,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// NewClientSet create a Kubernetes ClientSet based on flags
-func NewClientSet(inCluster *bool, kubeConfigPath *string) (*kubernetes.Clientset, error) {
+// NewKubeClient create a Kubernetes ClientSet based on flags
+func NewKubeClient(inCluster *bool, kubeConfigPath *string) (*kubernetes.Clientset, error) {
 
 	var config *rest.Config
 	var err error

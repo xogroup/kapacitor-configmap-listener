@@ -14,7 +14,7 @@
 <!-- /TOC -->
 
 ## Description
-A shuttle application to move `ConfigMaps` into Kapacitor.  This uses the informer framework for watch notification against the API.
+A shuttle application to move `ConfigMaps` into Kapacitor.  This uses the informer framework for watch notification against the API. 
 
 ## How to use
 
