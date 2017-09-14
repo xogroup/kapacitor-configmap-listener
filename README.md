@@ -28,7 +28,7 @@ A shuttle application to move `ConfigMaps` into Kapacitor.  This uses the inform
 ### How to install
 The installation process requires the [`glide`](https://github.com/Masterminds/glide) package management tool.
 
-Run `glide install` to bring down all dependencies followed by `glide up -v` to remove nested vendor dependencies.
+Run `glide install` to bring down all dependencies.
 
 ### How to build
 
