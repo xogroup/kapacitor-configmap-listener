@@ -4,8 +4,10 @@ metadata:
   name: kapacitor-hpa-rule-identity
   namespace: eng
 data:
+  # default tick template
+  template: "autoscaling"
   # target is the desired number of request per second per host
-  target: "10"
+  target: "10.0"
   # only one scaling event will be triggered by this time interval
   # https://docs.influxdata.com/kapacitor/v1.3/tick/syntax/#durations
   scalingCooldown: 1m

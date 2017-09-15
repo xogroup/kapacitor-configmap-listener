@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/xogroup/kapacitor-configmap-listener/helpers/kapacitor"
+
 	"k8s.io/client-go/pkg/api/v1"
 )
 
 // ConfigMapHandlers is an object to hold shared context for all of the handlers
 type ConfigMapHandlers struct {
-	prefix string
+	prefix    string
+	taskStore *kapacitor.TaskStore
 }
 
 //NewConfigMapHandlers instantiates a new object of that type
-func NewConfigMapHandlers(prefix string) *ConfigMapHandlers {
-	return &ConfigMapHandlers{prefix}
+func NewConfigMapHandlers(prefix string, taskStore *kapacitor.TaskStore) *ConfigMapHandlers {
+	return &ConfigMapHandlers{prefix, taskStore}
 }
 
 //HandleCreated captures created config map events and processes it as new rules to Kapacitor
@@ -23,6 +26,7 @@ func (context *ConfigMapHandlers) HandleCreated(obj interface{}) {
 	if strings.HasPrefix(configMap.ObjectMeta.Name, context.prefix) {
 
 		fmt.Println(configMap.Data["target"])
+		context.taskStore.AddTask(configMap)
 	}
 
 	fmt.Printf("configmap created: %s \n", configMap.ObjectMeta.Name)

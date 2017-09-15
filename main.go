@@ -7,7 +7,8 @@ import (
 
 	"github.com/xogroup/kapacitor-configmap-listener/configuration"
 	"github.com/xogroup/kapacitor-configmap-listener/handlers"
-	"github.com/xogroup/kapacitor-configmap-listener/helpers"
+	"github.com/xogroup/kapacitor-configmap-listener/helpers/k8s"
+	"github.com/xogroup/kapacitor-configmap-listener/helpers/kapacitor"
 )
 
 func main() {
@@ -25,22 +26,25 @@ func main() {
 
 	// create kapacitor client
 	kapacitorClient, err := configuration.NewKapacitorClient(*kapacitorURL)
-
-	_, text, err := kapacitorClient.Ping()
-
 	if err != nil {
 		panic(err.Error())
 	}
 
-	fmt.Println(text)
+	// create local storage for desired and real state
+	taskStore, err := kapacitor.NewTaskStore(kapacitorClient)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Printf("amount of tasks in kap %d\n", len(taskStore.Store))
 
 	//check to see if kapacitor is up
 	//list kapacitor tasks and keep it in memory
 	// name of tasks should be release names
 
-	configMapHandlers := handlers.NewConfigMapHandlers(*prefix)
+	configMapHandlers := handlers.NewConfigMapHandlers(*prefix, taskStore)
 
-	helpers.Watch(
+	k8s.Watch(
 		kubeClient,
 		"configmaps",
 		configMapHandlers.HandleCreated,
