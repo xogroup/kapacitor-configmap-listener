@@ -7,7 +7,7 @@ data:
   # default tick template
   template: "autoscaling"
   # target is the desired number of request per second per host
-  target: "10.0"
+  target: "11.0"
   # only one scaling event will be triggered by this time interval
   # https://docs.influxdata.com/kapacitor/v1.3/tick/syntax/#durations
   scalingCooldown: 1m

@@ -14,8 +14,7 @@ import (
 // TaskEntry stores the context of the scaling ConfigMap from k8s.  It also records if the
 // entry has been processed.
 type TaskEntry struct {
-	vars      map[string]client.Var
-	processed bool
+	vars map[string]client.Var
 }
 
 type taskWork struct {
@@ -57,8 +56,7 @@ func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
 
 	for key := range tasks {
 		store[tasks[key].ID] = &TaskEntry{
-			vars:      tasks[key].Vars,
-			processed: true,
+			vars: tasks[key].Vars,
 		}
 	}
 
@@ -67,6 +65,7 @@ func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
 	return &TaskStore{
 		kapacitorClient: kapacitorClient,
 		Store:           store,
+		workQueue:       make(chan taskWork),
 	}, nil
 }
 
@@ -97,26 +96,20 @@ func (taskStore *TaskStore) DeleteTask(configMap *v1.ConfigMap) error {
 func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType) error {
 
 	id := configMap.Data["releaseName"]
-	taskEntry := taskStore.Store[id]
 
-	if taskEntry == nil {
-
-		taskOptions, err := buildTaskOptions(configMap)
-
-		if err != nil {
-			return err
-		}
-
-		taskStore.workQueue <- taskWork{
-			taskOptions: *taskOptions,
-			action:      action,
-		}
-
-		taskStore.Store[id] = &TaskEntry{
-			vars:      taskOptions.Vars,
-			processed: false,
-		}
+	taskOptions, err := buildTaskOptions(configMap)
+	if err != nil {
+		return err
 	}
+
+	taskStore.Store[id] = &TaskEntry{
+		vars: taskOptions.Vars,
+	}
+
+	// taskStore.workQueue <- taskWork{
+	// 	taskOptions: *taskOptions,
+	// 	action:      action,
+	// }
 
 	return nil
 }
@@ -151,10 +144,3 @@ func buildVars(configMap *v1.ConfigMap) map[string]client.Var {
 
 	return vars
 }
-
-// Initialize fetches all existing Task from kapacitor to bring this component to the actual
-// state
-// func (taskStore *TaskStores) Initialize(kapacitorClient *client.Client){
-
-// 	kapacitorClient.
-// }

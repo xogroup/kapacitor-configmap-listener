@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/xogroup/kapacitor-configmap-listener/helpers/kapacitor"
 
 	"k8s.io/client-go/pkg/api/v1"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // ConfigMapHandlers is an object to hold shared context for all of the handlers
@@ -23,32 +24,22 @@ func NewConfigMapHandlers(prefix string, taskStore *kapacitor.TaskStore) *Config
 //HandleCreated captures created config map events and processes it as new rules to Kapacitor
 func (context *ConfigMapHandlers) HandleCreated(obj interface{}) {
 
+	log.Infof("ConfigMap (%s) created", obj.(*v1.ConfigMap).Name)
 	filterAndProcess(obj, context.prefix, context.taskStore.CreateTask)
-
-	// fmt.Printf("configmap created: %s \n", configMap.ObjectMeta.Name)
-	// fmt.Println("------------------------------------------------------")
-	// fmt.Println(configMap.Data)
-	// fmt.Println("======================================================")
 }
 
 //HandleUpdated captures created config map events and re-processes the rule to Kapacitor
 func (context *ConfigMapHandlers) HandleUpdated(oldObj interface{}, newObj interface{}) {
 
+	log.Infof("ConfigMap (%s) updated", newObj.(*v1.ConfigMap).Name)
 	filterAndProcess(newObj, context.prefix, context.taskStore.UpdateTask)
-	// fmt.Printf("configmap updated: %s \n", configMap.ObjectMeta.Name)
-	// fmt.Println("------------------------------------------------------")
-	// fmt.Println(configMap.Data)
-	// fmt.Println("======================================================")
 }
 
 //HandleDeleted captures created config map events and deletes the rule from Kapacitor
 func (context *ConfigMapHandlers) HandleDeleted(obj interface{}) {
 
+	log.Infof("ConfigMap (%s) deleted", obj.(*v1.ConfigMap).Name)
 	filterAndProcess(obj, context.prefix, context.taskStore.DeleteTask)
-	// fmt.Printf("configmap deleted: %s \n", configMap.ObjectMeta.Name)
-	// fmt.Println("------------------------------------------------------")
-	// fmt.Println(configMap.Data)
-	// fmt.Println("======================================================")
 }
 
 func filterAndProcess(obj interface{}, prefix string, f func(*v1.ConfigMap) error) {
@@ -56,9 +47,8 @@ func filterAndProcess(obj interface{}, prefix string, f func(*v1.ConfigMap) erro
 
 	if strings.HasPrefix(configMap.ObjectMeta.Name, prefix) {
 		err := f(configMap)
-
 		if err != nil {
-			fmt.Println(err.Error())
+			log.WithError(err)
 		}
 	}
 }
