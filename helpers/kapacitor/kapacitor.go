@@ -106,10 +106,12 @@ func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType)
 		vars: taskOptions.Vars,
 	}
 
-	// taskStore.workQueue <- taskWork{
-	// 	taskOptions: *taskOptions,
-	// 	action:      action,
-	// }
+	go func() {
+		taskStore.workQueue <- taskWork{
+			taskOptions: *taskOptions,
+			action:      action,
+		}
+	}()
 
 	return nil
 }
