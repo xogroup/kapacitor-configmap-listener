@@ -1,12 +1,14 @@
 package kapacitor
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/xogroup/kapacitor-configmap-listener/templates"
 
 	"github.com/influxdata/kapacitor/client/v1"
 	"k8s.io/client-go/pkg/api/v1"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // TaskEntry stores the context of the scaling ConfigMap from k8s.  It also records if the
@@ -18,7 +20,7 @@ type TaskEntry struct {
 
 type taskWork struct {
 	taskOptions client.CreateTaskOptions
-	action      string
+	action      ActionType
 }
 
 // TaskStore all of the individual Task in a map which can be looked up via the ReleaseName
@@ -29,6 +31,15 @@ type TaskStore struct {
 	Store           map[string]*TaskEntry
 	workQueue       chan taskWork
 }
+
+// ActionType signals what behavior is desired
+type ActionType int
+
+const (
+	Create ActionType = iota
+	Update
+	Delete
+)
 
 // NewTaskStore instantiates a new object of that type
 func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
@@ -51,15 +62,39 @@ func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
 		}
 	}
 
+	log.Infof("Found %d task in Kapacitor (%s)\n", len(store), kapacitorClient.URL())
+
 	return &TaskStore{
 		kapacitorClient: kapacitorClient,
 		Store:           store,
 	}, nil
 }
 
-// AddTask converts the configMap into a Kapacitor task and adds it to the
+// CreateTask converts the configMap into a Kapacitor task and adds it to the
 // worker queue to be added by the processor
-func (taskStore *TaskStore) AddTask(configMap *v1.ConfigMap) error {
+func (taskStore *TaskStore) CreateTask(configMap *v1.ConfigMap) error {
+
+	log.Infoln("Creating Task")
+	return taskStore.pushTask(configMap, Create)
+}
+
+// UpdateTask converts the configMap into a Kapacitor task and adds it to the
+// worker queue to be updated by the processor
+func (taskStore *TaskStore) UpdateTask(configMap *v1.ConfigMap) error {
+
+	log.Infoln("Updating Task")
+	return taskStore.pushTask(configMap, Update)
+}
+
+// DeleteTask converts the configMap into a Kapacitor task and adds it to the
+// worker queue to be removed by the processor
+func (taskStore *TaskStore) DeleteTask(configMap *v1.ConfigMap) error {
+
+	log.Infoln("Deleting Task")
+	return taskStore.pushTask(configMap, Delete)
+}
+
+func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType) error {
 
 	id := configMap.Data["releaseName"]
 	taskEntry := taskStore.Store[id]
@@ -74,7 +109,7 @@ func (taskStore *TaskStore) AddTask(configMap *v1.ConfigMap) error {
 
 		taskStore.workQueue <- taskWork{
 			taskOptions: *taskOptions,
-			action:      "create",
+			action:      action,
 		}
 
 		taskStore.Store[id] = &TaskEntry{
@@ -97,7 +132,7 @@ func buildTaskOptions(configMap *v1.ConfigMap) (*client.CreateTaskOptions, error
 		}, nil
 	}
 
-	return nil, errors.New("no TICK template found with name of " + configMap.Data["template"])
+	return nil, fmt.Errorf("no TICK template found with name of %s", configMap.Data["template"])
 }
 
 func buildVars(configMap *v1.ConfigMap) map[string]client.Var {

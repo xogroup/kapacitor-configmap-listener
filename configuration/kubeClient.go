@@ -1,7 +1,7 @@
 package configuration
 
 import (
-	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -42,7 +42,7 @@ func NewOutOfClusterConfig(kubeConfigPath *string) (*rest.Config, error) {
 	if homePath := os.Getenv("HOME"); *kubeConfigPath == "" && homePath != "" {
 		*kubeConfigPath = filepath.Join(homePath, ".kube", "config")
 	} else {
-		return nil, errors.New("absolute path required for kube config")
+		return nil, fmt.Errorf("absolute path required for kube config")
 	}
 
 	return clientcmd.BuildConfigFromFlags("", *kubeConfigPath)

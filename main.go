@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/xogroup/kapacitor-configmap-listener/configuration"
@@ -35,8 +34,6 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-
-	fmt.Printf("amount of tasks in kap %d\n", len(taskStore.Store))
 
 	//check to see if kapacitor is up
 	//list kapacitor tasks and keep it in memory
