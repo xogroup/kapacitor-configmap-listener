@@ -23,7 +23,7 @@ func main() {
 
 	log.SetLevel(log.Level(uint32(*logLevel)))
 
-	// creates the clientset
+	// creates kubernetes client
 	kubeClient, err := configuration.NewKubeClient(inCluster, kubeConfig)
 	if err != nil {
 		panic(err.Error())
@@ -35,18 +35,16 @@ func main() {
 		panic(err.Error())
 	}
 
-	// create local storage for desired and real state
+	// create local storage for kapacitor state alignment
 	taskStore, err := kapacitor.NewTaskStore(kapacitorClient)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	//check to see if kapacitor is up
-	//list kapacitor tasks and keep it in memory
-	// name of tasks should be release names
-
+	// initialize config map handlers for valid change events
 	configMapHandlers := handlers.NewConfigMapHandlers(*prefix, taskStore)
 
+	// create a watch for config map changes using the event handlers
 	k8s.Watch(
 		kubeClient,
 		"configmaps",
