@@ -69,13 +69,7 @@ func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
 
 	store := map[string]*TaskEntry{}
 
-	for key := range tasks {
-		store[tasks[key].ID] = &TaskEntry{
-			vars: tasks[key].Vars,
-		}
-	}
-
-	log.Infof("Found %d task in Kapacitor (%s)\n", len(store), kapacitorClient.URL())
+	log.Infof("Found %d task in Kapacitor (%s)", len(tasks), kapacitorClient.URL())
 
 	taskStore := &TaskStore{
 		kapacitorClient: kapacitorClient,
@@ -96,6 +90,8 @@ func (taskStore *TaskStore) workProcessor() {
 		select {
 		case job := <-taskStore.workQueue:
 			go func() {
+				log.Infof("Processing job for task %s", job.taskOptions.ID)
+
 				preExistingTaskLink := kapacitorClient.TaskLink(job.taskOptions.ID)
 				preExistingTask, _ := kapacitorClient.Task(preExistingTaskLink, nil)
 
@@ -129,9 +125,9 @@ func (taskStore *TaskStore) workProcessor() {
 							return
 						}
 
-						log.Infof("Task %s deleted")
+						log.Infof("Task %s deleted", job.taskOptions.ID)
 					} else {
-						log.Infof("Task %s does not exist in kapacitor")
+						log.Infof("Task %s does not exist in kapacitor", job.taskOptions.ID)
 					}
 				}
 				log.Infof("Processed job for task %s", job.taskOptions.ID)
@@ -181,11 +177,15 @@ func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType)
 	taskStore.Store[id] = taskEntry
 
 	go func() {
+		log.Infof("Job queuing for task %s", taskOptions.ID)
+
 		taskStore.workQueue <- work{
 			taskOptions: taskOptions,
 			taskEntry:   taskEntry,
 			action:      action,
 		}
+
+		log.Infof("Job queued for task %s", taskOptions.ID)
 	}()
 
 	return nil
