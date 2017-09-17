@@ -8,6 +8,8 @@ import (
 	"github.com/xogroup/kapacitor-configmap-listener/handlers"
 	"github.com/xogroup/kapacitor-configmap-listener/helpers/k8s"
 	"github.com/xogroup/kapacitor-configmap-listener/helpers/kapacitor"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -15,7 +17,11 @@ func main() {
 	inCluster := flag.Bool("incluster", false, "setup context for inside cluster (optional) [false]")
 	prefix := flag.String("prefixname", "kapacitor-hpa-rule-", "prefix name to capture for event handling for config maps (optional) [\"kapacitor-hpa-rule-\"]")
 	kapacitorURL := flag.String("kapacitorurl", os.Getenv("KAPACITOR_URL"), "url path to the kapacitord server.  Defaults to the KAPACITOR_URL environment variable if set (optional) [\"localhost:9092\"]")
+	logLevel := flag.Int("loglevel", 4, "log level 0-5 {panic, fatal, error warn, info, debug} (optional) [4-info]")
+
 	flag.Parse()
+
+	log.SetLevel(log.Level(uint32(*logLevel)))
 
 	// creates the clientset
 	kubeClient, err := configuration.NewKubeClient(inCluster, kubeConfig)
