@@ -24,31 +24,31 @@ func NewConfigMapHandlers(prefix string, taskStore *kapacitor.TaskStore) *Config
 //HandleCreated captures created config map events and processes it as new rules to Kapacitor
 func (context *ConfigMapHandlers) HandleCreated(obj interface{}) {
 
-	log.Infof("ConfigMap (%s) created", obj.(*v1.ConfigMap).Name)
+	log.Debugf("ConfigMap %s.%s created", obj.(*v1.ConfigMap).Namespace, obj.(*v1.ConfigMap).Name)
 	filterAndProcess(obj, context.prefix, context.taskStore.CreateTask)
 }
 
 //HandleUpdated captures created config map events and re-processes the rule to Kapacitor
 func (context *ConfigMapHandlers) HandleUpdated(oldObj interface{}, newObj interface{}) {
 
-	log.Infof("ConfigMap (%s) updated", newObj.(*v1.ConfigMap).Name)
+	log.Debugf("ConfigMap %s.%s updated", newObj.(*v1.ConfigMap).Namespace, newObj.(*v1.ConfigMap).Name)
 	filterAndProcess(newObj, context.prefix, context.taskStore.UpdateTask)
 }
 
 //HandleDeleted captures created config map events and deletes the rule from Kapacitor
 func (context *ConfigMapHandlers) HandleDeleted(obj interface{}) {
 
-	log.Infof("ConfigMap (%s) deleted", obj.(*v1.ConfigMap).Name)
+	log.Debugf("ConfigMap %s.%s deleted", obj.(*v1.ConfigMap).Namespace, obj.(*v1.ConfigMap).Name)
 	filterAndProcess(obj, context.prefix, context.taskStore.DeleteTask)
 }
 
 func filterAndProcess(obj interface{}, prefix string, f func(*v1.ConfigMap) error) {
 	configMap := obj.(*v1.ConfigMap)
 
-	if strings.HasPrefix(configMap.ObjectMeta.Name, prefix) {
+	if strings.HasPrefix(configMap.Name, prefix) {
 		err := f(configMap)
 		if err != nil {
-			log.WithError(err)
+			log.Errorf("ConfigMap %s.%s (%v)", configMap.Namespace, configMap.Name, err)
 		}
 	}
 }

@@ -1,0 +1,10 @@
+{
+    "database": {"type" : "string", "value" : "telegraf" },
+    "retentionPolicy": {"type" : "string", "value" : "2-weeks" },
+    "measurement": {"type" : "string", "value" : "docker_container_cpu" },
+    "field": {"type" : "string", "value" : "usage_percent" },
+    "target": {"type": "float", "value": 10.0 },
+    "deploymentName": {"type" : "string", "value" : "bump-proxy-qa-xo-app-manifest" },
+    "scalingCooldown": {"type" : "duration", "value" : "1m" },
+    "descalingCooldown": {"type" : "duration", "value" : "2m" }
+}

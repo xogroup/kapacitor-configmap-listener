@@ -1,6 +1,7 @@
 package kapacitor
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/xogroup/kapacitor-configmap-listener/templates"
@@ -14,11 +15,14 @@ import (
 // TaskEntry stores the context of the scaling ConfigMap from k8s.  It also records if the
 // entry has been processed.
 type TaskEntry struct {
-	vars map[string]client.Var
+	name      string
+	namespace string
+	vars      client.Vars
 }
 
-type taskWork struct {
-	taskOptions client.CreateTaskOptions
+type work struct {
+	taskOptions *TaskOptions
+	taskEntry   *TaskEntry
 	action      ActionType
 }
 
@@ -28,7 +32,7 @@ type TaskStore struct {
 	kapacitorClient *client.Client
 	templateID      string
 	Store           map[string]*TaskEntry
-	workQueue       chan taskWork
+	workQueue       chan work
 }
 
 // ActionType signals what behavior is desired
@@ -39,6 +43,17 @@ const (
 	Update
 	Delete
 )
+
+// TaskOptions is a generic store for kapacitor.client.CreateTaskOptions and kapacitor.client.UpdateTaskOptions
+type TaskOptions struct {
+	ID         string
+	TemplateID string
+	DBRPs      []client.DBRP
+	Vars       client.Vars
+	Status     client.TaskStatus
+	TICKscript string
+	Type       client.TaskType
+}
 
 // NewTaskStore instantiates a new object of that type
 func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
@@ -62,18 +77,74 @@ func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
 
 	log.Infof("Found %d task in Kapacitor (%s)\n", len(store), kapacitorClient.URL())
 
-	return &TaskStore{
+	taskStore := &TaskStore{
 		kapacitorClient: kapacitorClient,
 		Store:           store,
-		workQueue:       make(chan taskWork),
-	}, nil
+		workQueue:       make(chan work),
+	}
+
+	go taskStore.workProcessor()
+
+	return taskStore, nil
+}
+
+func (taskStore *TaskStore) workProcessor() {
+
+	kapacitorClient := taskStore.kapacitorClient
+
+	for {
+		select {
+		case job := <-taskStore.workQueue:
+			go func() {
+				preExistingTaskLink := kapacitorClient.TaskLink(job.taskOptions.ID)
+				preExistingTask, _ := kapacitorClient.Task(preExistingTaskLink, nil)
+
+				switch job.action {
+				case Create, Update:
+
+					if preExistingTask.ID == "" {
+						task, err := kapacitorClient.CreateTask(*job.taskOptions.ToCreateTaskOptions())
+						if err != nil {
+							log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
+							return
+						}
+
+						log.Infof("Task %s created with status of %s", task.ID, task.Status)
+					} else {
+						task, err := kapacitorClient.UpdateTask(preExistingTaskLink, *job.taskOptions.ToUpdateTaskOptions())
+						if err != nil {
+							log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
+							return
+						}
+
+						log.Infof("Task %s updated with status of %s", task.ID, task.Status)
+					}
+
+				case Delete:
+
+					if preExistingTask.ID != "" {
+						err := kapacitorClient.DeleteTask(preExistingTaskLink)
+						if err != nil {
+							log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
+							return
+						}
+
+						log.Infof("Task %s deleted")
+					} else {
+						log.Infof("Task %s does not exist in kapacitor")
+					}
+				}
+				log.Infof("Processed job for task %s", job.taskOptions.ID)
+			}()
+		}
+	}
 }
 
 // CreateTask converts the configMap into a Kapacitor task and adds it to the
 // worker queue to be added by the processor
 func (taskStore *TaskStore) CreateTask(configMap *v1.ConfigMap) error {
 
-	log.Infoln("Creating Task")
+	log.Infof("Creating task %s.%s", configMap.Namespace, configMap.Name)
 	return taskStore.pushTask(configMap, Create)
 }
 
@@ -81,7 +152,7 @@ func (taskStore *TaskStore) CreateTask(configMap *v1.ConfigMap) error {
 // worker queue to be updated by the processor
 func (taskStore *TaskStore) UpdateTask(configMap *v1.ConfigMap) error {
 
-	log.Infoln("Updating Task")
+	log.Infof("Updating task %s.%s", configMap.Namespace, configMap.Name)
 	return taskStore.pushTask(configMap, Update)
 }
 
@@ -89,26 +160,30 @@ func (taskStore *TaskStore) UpdateTask(configMap *v1.ConfigMap) error {
 // worker queue to be removed by the processor
 func (taskStore *TaskStore) DeleteTask(configMap *v1.ConfigMap) error {
 
-	log.Infoln("Deleting Task")
+	log.Infof("Deleting task %s.%s", configMap.Namespace, configMap.Name)
 	return taskStore.pushTask(configMap, Delete)
 }
 
 func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType) error {
 
 	id := configMap.Data["releaseName"]
-
 	taskOptions, err := buildTaskOptions(configMap)
 	if err != nil {
 		return err
 	}
 
-	taskStore.Store[id] = &TaskEntry{
-		vars: taskOptions.Vars,
+	taskEntry := &TaskEntry{
+		name:      configMap.Name,
+		namespace: configMap.Namespace,
+		vars:      taskOptions.Vars,
 	}
 
+	taskStore.Store[id] = taskEntry
+
 	go func() {
-		taskStore.workQueue <- taskWork{
-			taskOptions: *taskOptions,
+		taskStore.workQueue <- work{
+			taskOptions: taskOptions,
+			taskEntry:   taskEntry,
 			action:      action,
 		}
 	}()
@@ -116,33 +191,94 @@ func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType)
 	return nil
 }
 
-func buildTaskOptions(configMap *v1.ConfigMap) (*client.CreateTaskOptions, error) {
+func buildTaskOptions(configMap *v1.ConfigMap) (*TaskOptions, error) {
 
-	if template, ok := tick.Templates[configMap.Data["template"]]; ok {
-		return &client.CreateTaskOptions{
-			ID: configMap.Data["releaseName"],
-			// this should be moved into a factory func()
-			TemplateID: template.ID,
-			Vars:       buildVars(configMap),
+	vars, err := buildVars(configMap)
+
+	if err != nil {
+		return nil, err
+	}
+
+	templateID := vars["template"].Value.(string)
+
+	if template, ok := tick.Templates[templateID]; ok {
+
+		dbrp := buildDBRP(vars)
+
+		return &TaskOptions{
+			ID: vars["releaseName"].Value.(string),
+			// TemplateID: template.ID,
+			DBRPs:      *dbrp,
+			Vars:       vars,
+			Status:     client.Disabled,
+			TICKscript: template.Template,
+			Type:       client.StreamTask,
 		}, nil
 	}
 
-	return nil, fmt.Errorf("no TICK template found with name of %s", configMap.Data["template"])
+	return nil, fmt.Errorf("no TICK template found with name of %s", templateID)
 }
 
-func buildVars(configMap *v1.ConfigMap) map[string]client.Var {
+func buildDBRP(vars client.Vars) *[]client.DBRP {
 
-	vars := map[string]client.Var{}
+	dbrps := []client.DBRP{
+		client.DBRP{
+			Database:        vars["database"].Value.(string),
+			RetentionPolicy: vars["retentionPolicy"].Value.(string),
+		},
+	}
 
-	vars["database"] = client.Var{Type: client.VarString, Value: configMap.Data["database"]}
-	vars["retentionPolicy"] = client.Var{Type: client.VarString, Value: configMap.Data["retentionPolicy"]}
-	vars["measurement"] = client.Var{Type: client.VarString, Value: configMap.Data["measurement"]}
-	//where_filter
-	vars["field"] = client.Var{Type: client.VarString, Value: configMap.Data["field"]}
-	vars["target"] = client.Var{Type: client.VarFloat, Value: configMap.Data["target"]}
-	vars["deploymentName"] = client.Var{Type: client.VarFloat, Value: configMap.Data["deploymentName"]}
-	vars["scalingCooldown"] = client.Var{Type: client.VarDuration, Value: configMap.Data["scalingCooldown"]}
-	vars["descalingCooldown"] = client.Var{Type: client.VarDuration, Value: configMap.Data["descalingCooldown"]}
+	return &dbrps
+}
 
-	return vars
+func buildVars(configMap *v1.ConfigMap) (client.Vars, error) {
+
+	var jsonBuffer bytes.Buffer
+	vars := client.Vars{}
+	index := 1
+	length := len(configMap.Data)
+
+	jsonBuffer.WriteString("{")
+
+	for key := range configMap.Data {
+		jsonBuffer.WriteString(fmt.Sprintf("\"%s\":%s", key, configMap.Data[key]))
+
+		if index < length {
+			jsonBuffer.WriteString(",")
+		}
+
+		index++
+	}
+
+	jsonBuffer.WriteString("}")
+
+	err := vars.UnmarshalJSON(jsonBuffer.Bytes())
+
+	return vars, err
+}
+
+// ToUpdateTaskOptions converts the generic TaskOptions to the kapacitor.client.UpdateTaskOptions specific type
+func (taskOptions *TaskOptions) ToUpdateTaskOptions() *client.UpdateTaskOptions {
+	return &client.UpdateTaskOptions{
+		ID:         taskOptions.ID,
+		TemplateID: taskOptions.TemplateID,
+		DBRPs:      taskOptions.DBRPs,
+		Vars:       taskOptions.Vars,
+		Status:     taskOptions.Status,
+		TICKscript: taskOptions.TICKscript,
+		Type:       taskOptions.Type,
+	}
+}
+
+// ToCreateTaskOptions converts the generic TaskOptions to the kapacitor.client.CreateTaskOptions specific type
+func (taskOptions *TaskOptions) ToCreateTaskOptions() *client.CreateTaskOptions {
+	return &client.CreateTaskOptions{
+		ID:         taskOptions.ID,
+		TemplateID: taskOptions.TemplateID,
+		DBRPs:      taskOptions.DBRPs,
+		Vars:       taskOptions.Vars,
+		Status:     taskOptions.Status,
+		TICKscript: taskOptions.TICKscript,
+		Type:       taskOptions.Type,
+	}
 }
