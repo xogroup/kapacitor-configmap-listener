@@ -22,7 +22,7 @@ after_success:
     docker push xogroup/kapacitor-configmap-listener;
     echo "Built to DockerHub";
     else
-    echo "Skipped Docker Build"
+    echo "Skipping deployment with the dockerhub provider because this is not a tagged commit"
     fi
 notifications:
   slack:
