@@ -1,7 +1,7 @@
 # kapacitor-configmap-listener
 A shuttle application to move `ConfigMaps` into Kapacitor.  This uses the informer framework for watch notification against the Kubernetes API. 
 
-https://travis-ci.org/xogroup/kapacitor-configmap-listener.svg
+[![Build Status](https://travis-ci.org/xogroup/kapacitor-configmap-listener.svg?branch=master)](https://travis-ci.org/xogroup/kapacitor-configmap-listener)
 
 Lead Maintainer: [Lam Chan](https://github.com/lamchakchan)
 
