@@ -1,15 +1,27 @@
+sudo: required
 language: go
 go:
 - 1.7.x
 - 1.8.x
 - 1.9.x
 - tip
+services:
+  -docker
 install:
 - go get github.com/Masterminds/glide
 - cd $GOPATH/src/github.com/Masterminds/glide && go install && cd -
 - glide install
 script:
 - go build
+after_success:
+  - if [ "$TRAVIS_BRANCH" == "master" && "$TRAVIS_TAG" != "" ]; then
+    docker build -t xogroup/kapacitor-configmap-listener:latest -t xogroup/kapacitor-configmap-listener:$TRAVIS_TAG .;
+    docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
+    docker push xogroup/kapacitor-configmap-listener;
+    echo "Built to DockerHub";
+    else
+    echo "Skipped Docker Build"
+    fi
 notifications:
   slack:
     secure: bvgfyfyx636vZB83HCPmdw+Pm6/CqjWs4q9qZ7ZE3cxRrBcl1nPY55HsOZSMZ5tJiL0Wr4CCBO5qY1nhBYJCyx1tyHN5L4yw7C7IUty4YUrg76o3yHTCLw3oGwZQz4Seggl7SsmRo1iIX1ZshsPvWqRdcbQpOjwZEmEChpe4pRa0CsVcqafNFUoJq+/coijSy8vSsJGc7YFTbrUaxZPysfjUcjs9nT/p8moWUMQrOlomZCejUKsm8dKK1azv4dqVDSI9a9lyfwfBWSPUKfbU9UxgspyAz9vlR0r4XeYc1wEhFLYhcz6NPkYXXg6EcwqH6P2lW2NWMzCBUUZunqx+G6YBYxXxaFAaUQ1P5Lb4P4BsnkYK4C+Rue4q3BZfr39H7yMnOi7xmWchvoG5sDLfr5QPJGDxI6dt0QYH8iTMSZH5hQW24CTh553De0xesIqSo4y5+saoDMhS1bDU47xm9gIFMpOsmaRUggrb+vJMwS4KcBTtTaSQyuX11I9PLM9EV7QqnwT2Zzsap9jBYwcFrl3BWmk7fpd3PTR34zVgpZwsqoZK01qNJwj4X7HXN+ufUxu+9U+Sq/6IEni/srm92gpS+i+u3WRD52q6wowUhBniWJrlynMsr1C6f8V2i3PpanY4ZfW8GVaVE+oRGVSVYwbYCjhdgsXY+6aMnI5XC30=
