@@ -16,7 +16,7 @@ install:
 script:
 - go build
 after_success:
-  - if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_TAG" != "" ]; then
+  - if [ "$TRAVIS_BRANCH" == "$TRAVIS_TAG" ]; then
     docker build -t xogroup/kapacitor-configmap-listener:latest -t xogroup/kapacitor-configmap-listener:$TRAVIS_TAG .;
     docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
     docker push xogroup/kapacitor-configmap-listener;
