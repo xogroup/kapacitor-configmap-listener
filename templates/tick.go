@@ -6,37 +6,42 @@ type Template struct {
 	Template string
 }
 
-// Global list of templates
+// Templates contains the global list of available templates
 var Templates = map[string]Template{
 	"autoscaling": AutoScaling,
 }
 
-// AutoScaling TICK tempate
+// AutoScaling TICK template can be used to calculate against cpu/memory/queue sizes as long as the data is
+// aggregated to InfluxDB.  The easiest way to funnel data to Influx is to use Telegraf
 var AutoScaling = Template{
 	ID: "autoscaling",
 	Template: `
-// database
+// Database
 var database string
-// retention policy for database
+// Retention policy for database
 var retentionPolicy string
-// dataset collected within the retention policy
+// Dataset collected within the retention policy
 var measurement string
 // Optional where filter
 var where_filter = lambda: TRUE
 // Optional list of group by dimensions
 var groups = ['host']
-// Which field to process
+// Field data to use for the processing
 var field string
 // The time scale to calculate the average against
 var movingAverageCount = 60
+// Namespace the deployment lives in
+var namespace = 'default'
 // Deployment this is scaling for
 var deploymentName = 'placeholder'
 // Threshold for triggering
 var target = 10.0
-// time interval per scaling up
+// Time interval per scaling up
 var scalingCooldown = 1m
-// time interval per scaling down
+// Time interval per scaling down
 var descalingCooldown = 2m
+// Minimum replica count to maintain regardless of needs
+var minReplicaCount =1 
 	
 stream
 	|from()
@@ -62,37 +67,17 @@ stream
 	|k8sAutoscale()
 		// We are scaling a deployment.
 		.kind('deployments')
+		// The namespace of the deployment
+		.namespace(namespace)
 		// The name of the replicaset to scale is found in the 'replicaset' tag.
 		.resourceName(deploymentName)
 		// Set the cool down timer values.
 		.increaseCooldown(scalingCooldown)
 		.decreaseCooldown(descalingCooldown)
+		// The minimum amount of replica to have regardless of averages
+		.min(minReplicaCount)
 		// Compute the desired number of replicas based on the
 		// avg_point_per_second and target values.
 		.replicas(lambda: int(ceil("avg_point_per_second" / target)))
 	`,
 }
-
-// stream
-// |from()
-// 	.database(‘telegraf’)
-// 	.retentionPolicy(’2-weeks’)
-// 	.measurement('docker_container_cpu')
-// 	.where(lambda: "io.kubernetes.container.name" == 'knot-proxy-qa')
-// 	.groupBy('host')
-// |movingAverage('usage_percent', moving_avg_count)
-// 	.as('data_per_second')
-// |alert()
-// 	.crit(lambda: "data_per_second" > target)
-// 	.log('/var/log/test.log')
-// |k8sAutoscale()
-// 	// We are scaling a replicaset.
-// 	.kind('deployments')
-// 	// The name of the replicaset to scale is found in the 'replicaset' tag.
-// 	.resourceName('nginx-app')
-// 	// Set the cool down timer values.
-// 	.increaseCooldown(increase_cooldown)
-// 	.decreaseCooldown(decrease_cooldown)
-// 	// Compute the desired number of replicas based on the
-// 	// avg_requests_per_second and target values.
-// 	.replicas(lambda: int(ceil("data_per_second" / target)))

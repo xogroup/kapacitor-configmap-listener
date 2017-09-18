@@ -33,9 +33,15 @@ data:
   # data to be used for comparison with target
   field: >-
     { "type" : "string", "value" : "usage_percent" }
+  # namespace deployment resides
+  namespace: >-
+    { "type" : "string", "value" : "eng" }
   # name of deployment to scale for
   deploymentName: >-
     { "type" : "string", "value" : "theknot-proxy-qa-xo-app-manifest" }
   # name of release
   releaseName: >-
     { "type" : "string", "value" : "theknot-proxy-qa" }
+  # minimum amount of replicas running >-
+  minReplicaCount: >-
+    { "type" : "int", "value" : 1 }
