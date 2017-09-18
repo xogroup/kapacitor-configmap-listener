@@ -62,7 +62,7 @@ docker run -d -e KAPACITOR_URL=http://xyz.com:9092 xogroup/kapacitor-configmap-l
 
 ### Diagrams
 
-see the [Diagrams](Diagram.md).
+Look at the [Diagrams](DIAGRAM.md).
 
 ### API
 
