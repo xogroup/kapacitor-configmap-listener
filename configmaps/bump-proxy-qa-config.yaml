@@ -5,24 +5,37 @@ metadata:
   namespace: eng
 data:
   # default tick template
-  template: '{ "type" : "string", "value" : "autoscaling" }'
+  template: >-
+    { "type" : "string", "value" : "autoscaling" }
   # target is the desired number of request per second per host
-  target: '{ "type" : "float", "value" : 10 }'
+  target: >-
+    { "type" : "float", "value" : 10 }
   # only one scaling event will be triggered by this time interval
   # https://docs.influxdata.com/kapacitor/v1.3/tick/syntax/#durations
-  scalingCooldown: '{ "type" : "duration", "value" : "1m0s" }'
+  scalingCooldown: >-
+    { "type" : "duration", "value" : "1m0s" }
   # only one descaling even twill be triggered by this time interval
   # https://docs.influxdata.com/kapacitor/v1.3/tick/syntax/#durations
-  descalingCooldown: '{ "type" : "duration", "value" : "2m0s" }'
+  descalingCooldown: >-
+    { "type" : "duration", "value" : "2m0s" }
   # database
-  database: '{ "type" : "string", "value" : "telegraf" }'
+  database: >-
+    { "type" : "string", "value" : "telegraf" }
   # retention policy for database
-  retentionPolicy: '{ "type" : "string", "value" : "2-weeks" }'
+  retentionPolicy: >-
+    { "type" : "string", "value" : "2-weeks" }
   # dataset collected within the retention policy
-  measurement: '{ "type" : "string", "value" : "docker_container_cpu" }'
+  measurement: >-
+    { "type" : "string", "value" : "docker_container_cpu" }
+  # filter dataset for only preproduction data
+  where_filter: >- 
+    { "type" : "lambda", "value" : "\"environment\" == 'preproduction'" }
   # data to be used for comparison with target
-  field: '{ "type" : "string", "value" : "usage_percent" }'
+  field: >-
+    { "type" : "string", "value" : "usage_percent" }
   # name of deployment to scale for
-  deploymentName: '{ "type" : "string", "value" : "bump-proxy-qa-xo-app-manifest" }'
+  deploymentName: >-
+    { "type" : "string", "value" : "bump-proxy-qa-xo-app-manifest" }
   # name of release
-  releaseName: '{ "type" : "string", "value" : "bump-proxy-qa" }'
+  releaseName: >-
+    { "type" : "string", "value" : "bump-proxy-qa" }
