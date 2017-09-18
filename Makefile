@@ -8,4 +8,4 @@ build:
 	glide install
 	go build
 
-.PHONY: install
+.PHONY: install build
