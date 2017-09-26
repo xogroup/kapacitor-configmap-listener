@@ -23,7 +23,7 @@ var retentionPolicy string
 // Dataset collected within the retention policy
 var measurement string
 // Optional where filter
-var where_filter = lambda: TRUE
+var whereFilter = lambda: TRUE
 // Optional list of group by dimensions
 var groups = ['host']
 // Field data to use for the processing
@@ -48,7 +48,7 @@ stream
 		.database(database)
 		.retentionPolicy(retentionPolicy)
 		.measurement(measurement)
-		.where(where_filter)
+		.where(whereFilter)
 		.groupBy(groups)
 		.truncate(1s)
 	// Compute the rate of requests per second per host

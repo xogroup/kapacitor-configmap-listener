@@ -28,7 +28,7 @@ data:
   measurement: >-
     { "type" : "string", "value" : "docker_container_cpu" }
   # filter dataset for only preproduction data
-  where_filter: >- 
+  whereFilter: >- 
     { "type" : "lambda", "value" : "\"environment\" == 'preproduction'" }
   # data to be used for comparison with target
   field: >-
