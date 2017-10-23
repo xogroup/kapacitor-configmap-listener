@@ -24,8 +24,6 @@ var retentionPolicy string
 var measurement string
 // Optional where filter
 var whereFilter = lambda: TRUE
-// Optional list of group by dimensions
-var groups = ['host']
 // Field data to use for the processing
 var field string
 // The time scale to calculate the average against
@@ -37,11 +35,13 @@ var deploymentName = 'placeholder'
 // Threshold for triggering
 var target = 10.0
 // Time interval per scaling up
-var scalingCooldown = 1m
+var scalingCooldown = 2m
 // Time interval per scaling down
-var descalingCooldown = 2m
+var descalingCooldown = 5m
 // Minimum replica count to maintain regardless of needs
-var minReplicaCount =1 
+var minReplicaCount = 1
+// Maximum replica count to stop scaling at regardless of needs
+var maxReplicaCount = 20
 	
 stream
 	|from()
@@ -49,21 +49,11 @@ stream
 		.retentionPolicy(retentionPolicy)
 		.measurement(measurement)
 		.where(whereFilter)
-		.groupBy(groups)
 		.truncate(1s)
-	// Compute the rate of requests per second per host
-	|derivative(field)
-		.as('point_per_second')
-		.unit(1s)
-		.nonNegative()
-	|alert()
-		.crit(lambda: "point_per_second" > target)
-		.log('/var/log/test.log')
-	|sum('point_per_second')
-		.as('total_point_per_second')
-	|movingAverage('total_point_per_second', movingAverageCount)
-		.as('avg_point_per_second')
-	// add window()
+	|movingAverage(field, movingAverageCount)
+		.as('averageResource')	
+	|eval(lambda: int(ceil("averageResource" / float(target))))
+		.as('replicaCount')
 	|k8sAutoscale()
 		// We are scaling a deployment.
 		.kind('deployments')
@@ -76,8 +66,10 @@ stream
 		.decreaseCooldown(descalingCooldown)
 		// The minimum amount of replica to have regardless of averages
 		.min(minReplicaCount)
+		// The maximum amount of replica to have regardless of averages
+		.max(maxReplicaCount)
 		// Compute the desired number of replicas based on the
 		// avg_point_per_second and target values.
-		.replicas(lambda: int(ceil("avg_point_per_second" / target)))
+		.replicas(lambda: "replicaCount")
 	`,
 }

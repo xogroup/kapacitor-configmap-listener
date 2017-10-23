@@ -98,23 +98,23 @@ func (taskStore *TaskStore) workProcessor() {
 				switch job.action {
 				case Create, Update:
 
-					if preExistingTask.ID == "" {
-						task, err := kapacitorClient.CreateTask(*job.taskOptions.ToCreateTaskOptions())
+					if preExistingTask.ID != "" {
+						err := kapacitorClient.DeleteTask(preExistingTaskLink)
 						if err != nil {
 							log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
 							return
 						}
 
-						log.Infof("Task %s created with status of %s", task.ID, task.Status)
-					} else {
-						task, err := kapacitorClient.UpdateTask(preExistingTaskLink, *job.taskOptions.ToUpdateTaskOptions())
-						if err != nil {
-							log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
-							return
-						}
-
-						log.Infof("Task %s updated with status of %s", task.ID, task.Status)
+						log.Infof("Task %s deleted for replacement", job.taskOptions.ID)
 					}
+
+					task, err := kapacitorClient.CreateTask(*job.taskOptions.ToCreateTaskOptions())
+					if err != nil {
+						log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
+						return
+					}
+
+					log.Infof("Task %s created with status of %s", task.ID, task.Status)
 
 				case Delete:
 
@@ -206,11 +206,10 @@ func buildTaskOptions(configMap *v1.ConfigMap) (*TaskOptions, error) {
 		dbrp := buildDBRP(vars)
 
 		return &TaskOptions{
-			ID: vars["releaseName"].Value.(string),
-			// TemplateID: template.ID,
+			ID:         vars["releaseName"].Value.(string),
 			DBRPs:      *dbrp,
 			Vars:       vars,
-			Status:     client.Disabled,
+			Status:     client.Enabled,
 			TICKscript: template.Template,
 			Type:       client.StreamTask,
 		}, nil
