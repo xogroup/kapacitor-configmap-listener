@@ -5,5 +5,7 @@ import:
 - package: k8s.io/apimachinery
 - package: github.com/influxdata/kapacitor
   version: ^1.3.3
+- package: github.com/influxdata/influxdb
+  version: ^1.3.0
 - package: github.com/sirupsen/logrus
   version: ^1.0.3

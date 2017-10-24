@@ -15,6 +15,7 @@
 <!-- /TOC -->
 
 ## Commands
+Flags need to be formatted as `-<key1>=<value1>,-<key2>=<value2>,...-<keyn>=<valuen>`.
 
 ### Required Flags
 
@@ -23,6 +24,12 @@
 ### Optional Flags
 
 * `-incluster` - configure the context of where this controller is to run.  If it is inside a Kubernetes cluster, safe defaults will be used to fetch API data from environment variables.
+* `-cleansubscriptions` - enable influx subscription cleanup
+* `-influxurl` - set the url to the `influxd` server.  Needs to include the schema, host and port values.  eg: `http://localhost:8086`
+* `-influxusername` - set the username for influx connection
+* `-influxpassword` - set the password for the influx connection
+* `-influxssl` - set the http schema through this property
+* `-influxunsafessl` - skip ssl verification
 * `-kubeconfig` - path to the `kubectl` configuration file.
 * `-prefixname` - a custom prefix string to use for filtering `ConfigMaps` coming from the Kubernetes API
 * `-loglevel` - a value of `0-5` for capturing `panic -> debug` log messages.
@@ -79,6 +86,9 @@ data:
   # minimum amount of replicas running >-
   minReplicaCount: >-
     { "type" : "int", "value" : 1 }    
+  # maximum amount of replicas running >-
+  maxReplicaCount: >-
+    { "type" : "int", "value" : 20 }    
 ```
 
 ### Replacement Tokens
@@ -100,9 +110,7 @@ var retentionPolicy string
 // Dataset collected within the retention policy
 var measurement string
 // Optional where filter
-var where_filter = lambda: TRUE
-// Optional list of group by dimensions
-var groups = ['host']
+var whereFilter = lambda: TRUE
 // Field data to use for the processing
 var field string
 // The time scale to calculate the average against
@@ -114,46 +122,40 @@ var deploymentName = 'placeholder'
 // Threshold for triggering
 var target = 10.0
 // Time interval per scaling up
-var scalingCooldown = 1m
+var scalingCooldown = 2m
 // Time interval per scaling down
-var descalingCooldown = 2m
+var descalingCooldown = 5m
 // Minimum replica count to maintain regardless of needs
-var minReplicaCount =1 
+var minReplicaCount = 1
+// Maximum replica count to stop scaling at regardless of needs
+var maxReplicaCount = 20
 	
 stream
 	|from()
 		.database(database)
 		.retentionPolicy(retentionPolicy)
 		.measurement(measurement)
-		.where(where_filter)
-		.groupBy(groups)
+		.where(whereFilter)
 		.truncate(1s)
-	// Compute the rate of requests per second per host
-	|derivative(field)
-		.as('point_per_second')
-		.unit(1s)
-		.nonNegative()
-	|alert()
-		.crit(lambda: "point_per_second" > target)
-		.log('/var/log/test.log')
-	|sum('point_per_second')
-		.as('total_point_per_second')
-	|movingAverage('total_point_per_second', movingAverageCount)
-		.as('avg_point_per_second')
-	// add window()
+	|movingAverage(field, movingAverageCount)
+		.as('averageResource')	
+	|eval(lambda: int(ceil("averageResource" / float(target))))
+		.as('replicaCount')
 	|k8sAutoscale()
 		// We are scaling a deployment.
 		.kind('deployments')
 		// The namespace of the deployment
-		.namespace(namespace)        
+		.namespace(namespace)
 		// The name of the replicaset to scale is found in the 'replicaset' tag.
 		.resourceName(deploymentName)
 		// Set the cool down timer values.
 		.increaseCooldown(scalingCooldown)
 		.decreaseCooldown(descalingCooldown)
 		// The minimum amount of replica to have regardless of averages
-		.min(minReplicaCount)        
+		.min(minReplicaCount)
+		// The maximum amount of replica to have regardless of averages
+		.max(maxReplicaCount)
 		// Compute the desired number of replicas based on the
 		// avg_point_per_second and target values.
-		.replicas(lambda: int(ceil("avg_point_per_second" / target)))
+		.replicas(lambda: "replicaCount")
 ```

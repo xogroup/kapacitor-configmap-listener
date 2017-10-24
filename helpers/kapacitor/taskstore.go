@@ -26,7 +26,7 @@ type work struct {
 	action      ActionType
 }
 
-// TaskStore all of the individual Task in a map which can be looked up via the ReleaseName
+// TaskStore contains all of the individual Task in a map which can be looked up via the ReleaseName
 // of a deployment
 type TaskStore struct {
 	kapacitorClient *client.Client

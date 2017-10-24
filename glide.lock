@@ -1,5 +1,5 @@
-hash: 0841989030c8c69f4d40365e59d43710af33b7c6a102451cb123ca3fb67015d0
-updated: 2017-09-15T23:10:05.513940159-05:00
+hash: a1065e94688182ea7f1e136ee64854ea6eaf46e76a7aca68ab2a49d349d2d7d3
+updated: 2017-10-23T17:25:11.291575599-05:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
@@ -48,10 +48,11 @@ imports:
 - name: github.com/imdario/mergo
   version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
 - name: github.com/influxdata/influxdb
-  version: 6bd2ae05d49d023ff0f53587b2dbf706c84ec74a
+  version: a7c3d3c0f7b74f71919047adbc4933460967a576
   subpackages:
   - influxql
   - influxql/internal
+  - influxql/neldermead
   - models
   - pkg/escape
 - name: github.com/influxdata/kapacitor
@@ -76,6 +77,10 @@ imports:
   version: f006c2ac4710855cf0f916dd6b77acf6b048dc6e
 - name: github.com/spf13/pflag
   version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+- name: github.com/uber-go/atomic
+  version: 74ca5ec650841aee9f289dce76e928313a37cbc6
+- name: github.com/uber-go/zap
+  version: fbae0281ffd546fa6d1959fec6075ac5da7fb577
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
