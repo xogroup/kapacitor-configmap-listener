@@ -13,12 +13,15 @@ In short, this controller listens to the Kubernetes State for `ConfigMap` change
 
 ### Operations
 
-* Delete all Kapacitor subscriptions
+* Delete all InfluxDB subscriptions
   * Any subscriptions that are still used will automatically regenerate
 * On start, collects all filtered `ConfigMaps` from Kubernetes
   * Filtered applied is base on `prefix` name matching on the `ConfigMap` name property
 * The initial list of `ConfigMaps` are upserted to Kapacitor as task
 * All future `ConfigMap` changes are listened on and translated to the appropriate create, update, delete task comands to Kapacitor.
+* When Kapacitor falls over and loses all tasks when new container is started
+  * Will detect the fall over and reseed kapacitor with desired state from config map
+  * Will remove all InfluxDB subscriptions to ensure no subscriptions are orphaned.
 
 ## Installation
 This installation guide assumes `go` and [`glide`](https://github.com/Masterminds/glide) is installed
@@ -70,9 +73,6 @@ Look at the [Diagrams](DIAGRAM.md).
 
 See the [API Reference](API.md).
 
-### Examples
-
-Check out the [Examples](Example.md).
 
 ## Contributing
 
