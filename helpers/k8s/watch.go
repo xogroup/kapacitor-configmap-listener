@@ -32,7 +32,5 @@ func Watch(kubeClient *kubernetes.Clientset, resource string, addHandler func(ob
 
 	go controller.Run(stop)
 
-	for {
-		time.Sleep(time.Second)
-	}
+	return stop
 }

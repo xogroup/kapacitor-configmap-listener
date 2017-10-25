@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/xogroup/kapacitor-configmap-listener/configuration"
 	"github.com/xogroup/kapacitor-configmap-listener/handlers"
@@ -27,6 +28,8 @@ func main() {
 	influxSsl := flag.Bool("influxssl", stringToBool(os.Getenv("INFLUX_SSL")), "use ssl for influx. Defaults to INFLUX_SSL environment variable if set (optional) [false]")
 	influxUnsafeSsl := flag.Bool("influxunsafessl", stringToBool(os.Getenv("INFLUX_UNSAFE_SSL")), "skip ssl verification. Defaults to INFLUX_UNSAFE_SSL environment variable if set (optional) [false]")
 
+	var subscriptions *influx.Subscriptions
+
 	flag.Parse()
 
 	log.SetLevel(log.Level(uint32(*logLevel)))
@@ -37,8 +40,7 @@ func main() {
 			panic(err.Error())
 		}
 
-		subscriptions := influx.NewSubscriptions(influxClient)
-		subscriptions.RemoveAll()
+		subscriptions = influx.NewSubscriptions(influxClient)
 	}
 
 	// creates kubernetes client
@@ -69,6 +71,16 @@ func main() {
 		configMapHandlers.HandleCreated,
 		configMapHandlers.HandleDeleted,
 		configMapHandlers.HandleUpdated)
+
+	// intitialize kapacitor reset handler for polling events
+	kapacitorResetHandler := handlers.NewKapacitorResetHandlers(taskStore, subscriptions)
+
+	// create a watcher that polls kapacitor for changes
+	kapacitor.Watch(kapacitorResetHandler.Handle)
+
+	for {
+		time.Sleep(time.Second)
+	}
 }
 
 func stringToBool(value string) bool {

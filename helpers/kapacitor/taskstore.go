@@ -15,15 +15,14 @@ import (
 // TaskEntry stores the context of the scaling ConfigMap from k8s.  It also records if the
 // entry has been processed.
 type TaskEntry struct {
-	name      string
-	namespace string
-	vars      client.Vars
+	name        string
+	namespace   string
+	taskOptions *TaskOptions
 }
 
 type work struct {
-	taskOptions *TaskOptions
-	taskEntry   *TaskEntry
-	action      ActionType
+	taskEntry *TaskEntry
+	action    ActionType
 }
 
 // TaskStore contains all of the individual Task in a map which can be looked up via the ReleaseName
@@ -57,7 +56,6 @@ type TaskOptions struct {
 
 // NewTaskStore instantiates a new object of that type
 func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
-
 	defaultOptions := &client.ListTasksOptions{
 		Limit: 500,
 	}
@@ -67,13 +65,11 @@ func NewTaskStore(kapacitorClient *client.Client) (*TaskStore, error) {
 		return nil, err
 	}
 
-	store := map[string]*TaskEntry{}
-
 	log.Infof("Found %d task in Kapacitor (%s)", len(tasks), kapacitorClient.URL())
 
 	taskStore := &TaskStore{
 		kapacitorClient: kapacitorClient,
-		Store:           store,
+		Store:           make(map[string]*TaskEntry),
 		workQueue:       make(chan work),
 	}
 
@@ -90,9 +86,10 @@ func (taskStore *TaskStore) workProcessor() {
 		select {
 		case job := <-taskStore.workQueue:
 			go func() {
-				log.Infof("Processing job for task %s", job.taskOptions.ID)
+				id := job.taskEntry.taskOptions.ID
+				log.Infof("Processing job for task %s", id)
 
-				preExistingTaskLink := kapacitorClient.TaskLink(job.taskOptions.ID)
+				preExistingTaskLink := kapacitorClient.TaskLink(id)
 				preExistingTask, _ := kapacitorClient.Task(preExistingTaskLink, nil)
 
 				switch job.action {
@@ -101,16 +98,16 @@ func (taskStore *TaskStore) workProcessor() {
 					if preExistingTask.ID != "" {
 						err := kapacitorClient.DeleteTask(preExistingTaskLink)
 						if err != nil {
-							log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
+							log.Errorf("Task %s (%v)", id, err)
 							return
 						}
 
-						log.Infof("Task %s deleted for replacement", job.taskOptions.ID)
+						log.Infof("Task %s deleted for replacement", id)
 					}
 
-					task, err := kapacitorClient.CreateTask(*job.taskOptions.ToCreateTaskOptions())
+					task, err := kapacitorClient.CreateTask(*job.taskEntry.taskOptions.ToCreateTaskOptions())
 					if err != nil {
-						log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
+						log.Errorf("Task %s (%v)", id, err)
 						return
 					}
 
@@ -121,16 +118,16 @@ func (taskStore *TaskStore) workProcessor() {
 					if preExistingTask.ID != "" {
 						err := kapacitorClient.DeleteTask(preExistingTaskLink)
 						if err != nil {
-							log.Errorf("Task %s (%v)", job.taskOptions.ID, err)
+							log.Errorf("Task %s (%v)", id, err)
 							return
 						}
 
-						log.Infof("Task %s deleted", job.taskOptions.ID)
+						log.Infof("Task %s deleted", id)
 					} else {
-						log.Infof("Task %s does not exist in kapacitor", job.taskOptions.ID)
+						log.Infof("Task %s does not exist in kapacitor", id)
 					}
 				}
-				log.Infof("Processed job for task %s", job.taskOptions.ID)
+				log.Infof("Processed job for task %s", id)
 			}()
 		}
 	}
@@ -160,18 +157,66 @@ func (taskStore *TaskStore) DeleteTask(configMap *v1.ConfigMap) error {
 	return taskStore.pushTask(configMap, Delete)
 }
 
+// IsSync comapares desired and real state between kapacitor and configmaps stored
+func (taskStore *TaskStore) IsSync() (bool, error) {
+
+	tasks, err := taskStore.kapacitorClient.ListTasks(&client.ListTasksOptions{
+		Limit: 500,
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	// check all configmaps exist in kapacitor
+	for key := range taskStore.Store {
+		matched := false
+
+		for _, task := range tasks {
+			if task.ID == key {
+				matched = true
+				break
+			}
+		}
+
+		if !matched {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// Reseed will recreate all tasks from the configmaps stored
+func (taskStore *TaskStore) Reseed() {
+
+	for _, value := range taskStore.Store {
+		go func(taskEntry *TaskEntry) {
+			log.Infof("Job queueing for task %s for reseed", taskEntry.taskOptions.ID)
+
+			taskStore.workQueue <- work{
+				taskEntry: taskEntry,
+				action:    Create,
+			}
+
+			log.Infof("Job queued for task %s for reseed", taskEntry.taskOptions.ID)
+		}(value)
+	}
+}
+
 func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType) error {
 
-	id := configMap.Data["releaseName"]
 	taskOptions, err := buildTaskOptions(configMap)
 	if err != nil {
 		return err
 	}
 
+	id := taskOptions.Vars["releaseName"].Value.(string)
+
 	taskEntry := &TaskEntry{
-		name:      configMap.Name,
-		namespace: configMap.Namespace,
-		vars:      taskOptions.Vars,
+		name:        configMap.Name,
+		namespace:   configMap.Namespace,
+		taskOptions: taskOptions,
 	}
 
 	taskStore.Store[id] = taskEntry
@@ -180,9 +225,8 @@ func (taskStore *TaskStore) pushTask(configMap *v1.ConfigMap, action ActionType)
 		log.Infof("Job queuing for task %s", taskOptions.ID)
 
 		taskStore.workQueue <- work{
-			taskOptions: taskOptions,
-			taskEntry:   taskEntry,
-			action:      action,
+			taskEntry: taskEntry,
+			action:    action,
 		}
 
 		log.Infof("Job queued for task %s", taskOptions.ID)
