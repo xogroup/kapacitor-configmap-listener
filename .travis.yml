@@ -14,7 +14,7 @@ install:
 - curl https://glide.sh/get | sh
 - glide install
 script:
-- go build
+- CGO_ENABLED=0 go build
 after_success:
   - if [ "$TRAVIS_BRANCH" == "$TRAVIS_TAG" ]; then
     docker build -t xogroup/kapacitor-configmap-listener:latest -t xogroup/kapacitor-configmap-listener:$TRAVIS_TAG .;
