@@ -1,4 +1,4 @@
-FROM iron/go
+FROM golang:latest
 
 MAINTAINER Lam Chan (lchan@xogrp.com)
 
